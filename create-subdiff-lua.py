@@ -10,7 +10,7 @@ import re
 table_list = []
 for bmt_filepath in glob.glob('../../table/*.bmt'):
     with gzip.GzipFile(bmt_filepath) as f:
-        d = json.load(f)
+        d = json.load(f, strict=False)
         table_name = d['name']
         if  'おすすめ譜面表' in table_name or 'BMS Search' in table_name:
             continue
@@ -21,22 +21,31 @@ subdiff_data = {}
 
 for bmt_filepath, table_tag in table_list:
     with gzip.GzipFile(bmt_filepath) as f:
-        d = json.load(f)
+        d = json.load(f, strict=False)
+
+        table_name = d['name']
 
         for d2 in d['folder']:
             subdiff_name = d2['name']
 
-            m = re.match(r'(?P<level>[EFHN]★\d+\.\d+)\.\.\.\d+\.\d+', subdiff_name)
-            if m != None:
-                subdiff_name = m.group('level') + '…'
+            if table_name == 'Satellite Recommend':
+                subdiff_name += "*"
+            elif table_name == 'Satellite (Voting)':
+                subdiff_name += "?"
+            elif table_name == 'Satellite (Rejected)':
+                subdiff_name += "'"
+            else:
+                m = re.match(r'(?P<level>[EFHN]★\d+\.\d+)\.\.\.\d+\.\d+', subdiff_name)
+                if m != None:
+                    subdiff_name = m.group('level') + '…'
 
-            m = re.match(r'(?P<short>[EFHN]★)\.\.\.(?P<level>\d+\.\d+)', subdiff_name)
-            if m != None:
-                subdiff_name = m.group('short') + '…' + m.group('level')
+                m = re.match(r'(?P<short>[EFHN]★)\.\.\.(?P<level>\d+\.\d+)', subdiff_name)
+                if m != None:
+                    subdiff_name = m.group('short') + '…' + m.group('level')
 
-            m = re.match(r'(?P<level>[EFHN]★\d+\.\d+)\.\.\.$', subdiff_name)
-            if m != None:
-                subdiff_name = m.group('level') + '…'
+                m = re.match(r'(?P<level>[EFHN]★\d+\.\d+)\.\.\.$', subdiff_name)
+                if m != None:
+                    subdiff_name = m.group('level') + '…'
 
             # print(subdiff_name)
             for d3 in d2['songs']:
@@ -51,6 +60,34 @@ for bmt_filepath, table_tag in table_list:
                 if key not in subdiff_data:
                     subdiff_data[key] = []
                 subdiff_data[key].append(subdiff_name)
+
+# filter
+p1 = r'^sU(?P<year>\d{4})/(?P<month>\d{2})$'
+p2 = r'^sl\d+$'
+p3 = r'^sl\d+\*$'
+for key, value in subdiff_data.items():
+    for i, subdiff_name in enumerate(value):
+        m = re.match(p1, subdiff_name)
+        if m != None:
+            if len(value) > 1:
+                value.pop(i)
+                break
+            else:
+                value[i] = 'sU'
+                break
+
+    has_sl_rec = False
+    for i, subdiff_name in enumerate(value):
+        m = re.match(p3, subdiff_name)
+        if m != None:
+            has_sl_rec = True
+            break
+    if has_sl_rec:
+        for i, subdiff_name in enumerate(value):
+            m = re.match(p2, subdiff_name)
+            if m != None:
+                value.pop(i)
+                break
 
 md5_list = []
 sha256_list = []
